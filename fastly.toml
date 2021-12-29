@@ -1,0 +1,9 @@
+# This file describes a Fastly Compute@Edge package. To learn more visit:
+# https://developer.fastly.com/reference/fastly-toml/
+
+authors = ["brooks"]
+description = "openapi request validation"
+language = "javascript"
+manifest_version = 2
+name = "compute-openapi-validator"
+service_id = ""
