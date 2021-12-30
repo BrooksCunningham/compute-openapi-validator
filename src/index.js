@@ -7,12 +7,10 @@ import welcomePage from "./welcome-to-compute@edge.html";
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapivalidator
 import { OpenAPIValidator } from 'openapi-backend/validation';
 
-
-// https://petstore3.swagger.io/api/v3/openapi.yaml
-const openapi_document = require("./petstore.json");
-
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapirouter
 // import { OpenAPIRouter } from 'openapi-backend/router';
+
+
 
 
 // The entry point for your application.
@@ -22,43 +20,23 @@ const openapi_document = require("./petstore.json");
 // the request to a backend, make completely new requests, and/or generate
 // synthetic responses.
 
-const petstore_basic_document = {
-  openapi: '3.0.1',
-  info: {
-    title: 'My API',
-    version: '1.0.0',
-  },
-  paths: {
-    '/pets': {
-      get: {
-        operationId: 'getPets',
-        responses: {
-          200: { description: 'ok' },
-        },
-      },
-    },
-    '/pets/{id}': {
-      get: {
-        operationId: 'getPetById',
-        responses: {
-          200: { description: 'ok' },
-        },
-      },
-      parameters: [
-        {
-          name: 'id',
-          in: 'path',
-          required: true,
-          schema: {
-            type: 'integer',
-          },
-        },
-      ],
-    },
-  },
-};
+// https://petstore3.swagger.io/api/v3/openapi.yaml
+// const openapi_document = require("./petstore.json");
+const openapi_document = require("./petstore.yaml");
+const petstore_basic_document = require("./petstore-basic.json");
 
-const validator = new OpenAPIValidator({
+
+// lazyCompileValidator is needed for $ref to work.
+const openapi_validator = new OpenAPIValidator({
+  definition: openapi_document,
+  lazyCompileValidators: true,
+  // definition: parsed_open_api_document
+});
+
+console.log(JSON.stringify(openapi_validator));
+
+
+const openapi_basic_validator = new OpenAPIValidator({
   definition: petstore_basic_document,
 });
 
@@ -69,7 +47,7 @@ async function openapi_request_validation(req) {
     let url = new URL(req.url);
     // console.log(url.pathname);
     // console.log(JSON.stringify(req.headers));
-    let valid = validator.validateRequest(
+    let valid = openapi_basic_validator.validateRequest(
       {
         // HTTP method of the request
         method: req.method,
@@ -113,7 +91,6 @@ async function handleRequest(event) {
   // If request is to the `/` path...
   if (url.pathname == "/") {
     // Head to https://developer.fastly.com/learning/compute/javascript/ to discover more.
-
     // Send a default synthetic response.
     return new Response(welcomePage, {
       status: 200,

@@ -22,6 +22,11 @@ module.exports = {
         test: /\.(txt|html)/,
         type: "asset/source",
       },
+      {
+        test: /\.ya?ml$/,
+        use: 'yaml-loader',
+        type: 'json'
+      }
     ],
   },
   resolve: {
