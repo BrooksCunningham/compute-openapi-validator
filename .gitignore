@@ -91,3 +91,4 @@ typings/
 # Everything else
 bin/main.wasm
 bin/index.js
+fastly.toml
