@@ -7,3 +7,14 @@ language = "javascript"
 manifest_version = 2
 name = "compute-openapi-validator"
 service_id = ""
+
+[local_server]
+
+  [local_server.backends]
+
+    [local_server.backends.petstore]
+      url = "https://petstore3.swagger.io"    
+
+    [local_server.backends.httpbin]
+      url = "https://httpbin.org"
+    

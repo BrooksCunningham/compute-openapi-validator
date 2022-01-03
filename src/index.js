@@ -1,6 +1,10 @@
 //! Default Compute@Edge template program.
 import welcomePage from "./welcome-to-compute@edge.html";
 
+// https://petstore3.swagger.io
+const petstore_backend = "petstore";
+const httpbin_backend = "httpbin";
+
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapibackend
 // import { OpenAPIBackend } from 'openapi-backend';
 
@@ -8,32 +12,26 @@ import welcomePage from "./welcome-to-compute@edge.html";
 import { OpenAPIValidator } from 'openapi-backend/validation';
 
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapirouter
-// import { OpenAPIRouter } from 'openapi-backend/router';
-
-
-
-
-// The entry point for your application.
-//
-// Use this fetch event listener to define your main request handling logic. It could be
-// used to route based on the request properties (such as method or path), send
-// the request to a backend, make completely new requests, and/or generate
-// synthetic responses.
+import { OpenAPIRouter } from 'openapi-backend/router';
 
 // https://petstore3.swagger.io/api/v3/openapi.yaml
 // const openapi_document = require("./petstore.json");
+// set the yaml or JSON files that are used for the openapi spec.
 const openapi_document = require("./petstore.yaml");
 const petstore_basic_document = require("./petstore-basic.json");
 
+const openapi_router = new OpenAPIRouter({
+  definition: openapi_document,
+  apiRoot: '/api/v3',
+  ignoreTrailingSlashes: true,
+});
 
 // lazyCompileValidator is needed for $ref to work.
 const openapi_validator = new OpenAPIValidator({
   definition: openapi_document,
   lazyCompileValidators: true,
-  // definition: parsed_open_api_document
+  router: openapi_router,
 });
-
-console.log(JSON.stringify(openapi_validator));
 
 
 const openapi_basic_validator = new OpenAPIValidator({
@@ -45,30 +43,51 @@ async function openapi_request_validation(req) {
   try {
     // console.log(req.method);
     let url = new URL(req.url);
-    // console.log(url.pathname);
-    // console.log(JSON.stringify(req.headers));
-    let valid = openapi_basic_validator.validateRequest(
+
+    let headers = req.headers;
+    console.log(JSON.stringify(headers));
+
+    let body = req.text();
+    console.log(JSON.stringify(body));
+    // I am having trouble getting the headers out of a given request.
+
+    // https://developer.fastly.com/learning/compute/migrate/#sort-and-sanitize-a-query-string
+    // let searchEntries = url.searchParams.entries();
+    // let filteredEntries = searchEntries.filter();
+    // let filteredParams = new URLSearchParams(filteredEntries);
+    // console.log(filteredParams.sort());
+
+    let valid = openapi_validator.validateRequest(
       {
         // HTTP method of the request
         method: req.method,
         // path of the request
         path: url.pathname,
-        // HTTP request headers
-        headers: { 'accept': 'application/json', 'cookie': 'sessionid=abc123;' },
+        // HTTP request 
+        // headers: { 'accept': 'application/json', 'cookie': 'sessionid=abc123;' },
+        headers: req.headers,
         // parsed query parameters (optional), we also parse query params from the path property
         // query: { 'format': 'json' }
         // the request body (optional), either raw buffer/string or a parsed object/array
         // body: { treat: 'bone' },
+        body: req.body
       }
     );
+    // print the result to the console for debugging
     console.log(JSON.stringify(valid));
+
     if (valid.valid) {
-      // console.log("request is valid");
-      return true
+      console.log("request_valid: true");
+      return valid
+    };
+    if (!valid.valid) {
+      console.log("request_valid: false");
+      return valid
     };
   } catch (error) {
+    console.log("validation error")
     // console.log(error);
-    return false
+    return error
   }
 }
 
@@ -79,43 +98,38 @@ async function handleRequest(event) {
   // Get the client request.
   let req = event.request;
 
-  // Filter requests that have unexpected methods.
-  if (!["HEAD", "GET"].includes(req.method)) {
-    return new Response("This method is not allowed", {
-      status: 405,
-    });
-  }
-
   let url = new URL(req.url);
 
-  // If request is to the `/` path...
-  if (url.pathname == "/") {
-    // Head to https://developer.fastly.com/learning/compute/javascript/ to discover more.
-    // Send a default synthetic response.
-    return new Response(welcomePage, {
-      status: 200,
-      headers: new Headers({ "Content-Type": "text/html; charset=utf-8" }),
-    });
-
-  }
-  // Catch all other requests and return a 200 for pet store testing.
-  if (url.pathname != "/") {
+  //debug at the anything endpoint for httpbin
+  if (req.headers.get("anything")) {
     let validation_result = await openapi_request_validation(req);
-    console.log("validation results");
-    console.log(validation_result);
+    // console.log(JSON.stringify(validation_result));
 
-    if (validation_result){
-      console.log("valid: true");
-      return new Response("Requests for pet store", {
-        status: 200,
-      });
-    } else {
-      console.log("valid: false");
-      return new Response("Invalid request compared against openapi spec", {
-        status: 500,
-      });
-    }
+    req.headers.set("host", "petstore3.swagger.io");
+    req.headers.set("openapi-check", validation_result.valid);
+    if (validation_result.errors){
+      req.headers.set("openapi-check-false-debug", JSON.stringify(validation_result.errors));
+    };
 
+    // Create a new Request object with an updated URL that will be send to httpbin.
+    let new_url = new URL(url);
+    new_url.pathname = "/anything" + url.pathname;
 
+    const httpbin_req = new Request(new_url, req);
+
+    return fetch(httpbin_req, {
+      backend: httpbin_backend,
+    });
+  } else {
+  // send requests to the petstore3 example
+    let validation_result = await openapi_request_validation(req);
+
+    console.log("validation results: " + validation_result.valid);
+
+    req.headers.set("host", "petstore3.swagger.io");
+    // req.headers.set("openapi-check", validation_result);
+    return fetch(req, {
+      backend: petstore_backend,
+    });
   }
 }
