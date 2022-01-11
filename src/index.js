@@ -41,40 +41,37 @@ const openapi_basic_validator = new OpenAPIValidator({
 // validates HTTP requests against the spec defined in the OpenAPI validator object.
 async function openapi_request_validation(req) {
   try {
-    // console.log(req.method);
-    let url = new URL(req.url);
+    const openapi_checking_req = new Request(req);
 
-    let headers = req.headers;
-    console.log(JSON.stringify(headers));
-
-    let body = req.text();
-    console.log(JSON.stringify(body));
-    // I am having trouble getting the headers out of a given request.
-
-    // https://developer.fastly.com/learning/compute/migrate/#sort-and-sanitize-a-query-string
-    // let searchEntries = url.searchParams.entries();
-    // let filteredEntries = searchEntries.filter();
-    // let filteredParams = new URLSearchParams(filteredEntries);
-    // console.log(filteredParams.sort());
+    let method = openapi_checking_req.method
+    let url = new URL(openapi_checking_req.url);
+    let headers = Object.fromEntries(openapi_checking_req.headers.entries());
+    // console.log(JSON.stringify(headers));
+    let query = Object.fromEntries(url.searchParams.entries());
+    // console.log(JSON.stringify(query));
+    let body = await openapi_checking_req.text();
+    // console.log(body);
+    // console.log(JSON.stringify(body));
 
     let valid = openapi_validator.validateRequest(
       {
         // HTTP method of the request
-        method: req.method,
+        method: method,
         // path of the request
         path: url.pathname,
         // HTTP request 
         // headers: { 'accept': 'application/json', 'cookie': 'sessionid=abc123;' },
-        headers: req.headers,
+        headers: headers,
         // parsed query parameters (optional), we also parse query params from the path property
         // query: { 'format': 'json' }
+        query: query,
         // the request body (optional), either raw buffer/string or a parsed object/array
         // body: { treat: 'bone' },
-        body: req.body
+        body: body,
       }
     );
     // print the result to the console for debugging
-    console.log(JSON.stringify(valid));
+    // console.log(JSON.stringify(valid));
 
     if (valid.valid) {
       console.log("request_valid: true");
@@ -85,10 +82,18 @@ async function openapi_request_validation(req) {
       return valid
     };
   } catch (error) {
+    console.log(error);
     console.log("validation error")
-    // console.log(error);
     return error
   }
+}
+async function openapi_request_header_enrichment(req, openapi_validation_result){
+  req.headers.set("host", "petstore3.swagger.io");
+  req.headers.set("openapi-check", openapi_validation_result.valid);
+  if (openapi_validation_result.errors){
+    req.headers.set("openapi-check-false-debug", JSON.stringify(openapi_validation_result.errors));
+  };
+  return req
 }
 
 
@@ -96,32 +101,67 @@ addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
 async function handleRequest(event) {
   // Get the client request.
-  let req = event.request;
+  let original_req = event.request;
 
-  let url = new URL(req.url);
+
+
+  const original_body = await original_req.text();
+  let original_headers = new Headers();
+
+  for (let pair of original_req.headers.entries()) {
+    // console.log(pair[0]+ ': '+ pair[1]);
+    original_headers.append(pair[0], pair[1]);
+  };
+ 
+  // Object.fromEntries(req.headers.entries())
+  console.log(original_body);
+  console.log(typeof original_body);
+  // let body_init = new body_init(original_body);
+
+  const original_req_init = {
+    method: original_req.method,
+    headers: original_headers,
+    // body: original_body,
+    body: 'my body',
+  };
+
+  // cloning is needed when we consume the body of the request
+  // clone the original request to send to the origin.
+  let req = new Request(original_req.url, original_req_init);
+
+
+  // clone the request for the openapi check
+  let openapi_check_req = new Request(original_req.url, original_req_init);  
+
+  console.log(JSON.stringify(Object.fromEntries(req.headers.entries())));
 
   //debug at the anything endpoint for httpbin
-  if (req.headers.get("anything")) {
-    let validation_result = await openapi_request_validation(req);
+  // console.log(req.headers.get('anything'));
+  if (req.headers.get('anything') != null) {
+    console.log('sending to httpbin');
+    let validation_result = await openapi_request_validation(openapi_check_req);
     // console.log(JSON.stringify(validation_result));
 
-    req.headers.set("host", "petstore3.swagger.io");
-    req.headers.set("openapi-check", validation_result.valid);
-    if (validation_result.errors){
-      req.headers.set("openapi-check-false-debug", JSON.stringify(validation_result.errors));
-    };
 
+    req = await openapi_request_header_enrichment(req, validation_result);
+
+    let url = new URL(req.url);
     // Create a new Request object with an updated URL that will be send to httpbin.
     let new_url = new URL(url);
     new_url.pathname = "/anything" + url.pathname;
 
     const httpbin_req = new Request(new_url, req);
+    // return fetch(req, {
+    //   backend: httpbin_backend,
+    // });
 
     return fetch(httpbin_req, {
       backend: httpbin_backend,
     });
+    
   } else {
   // send requests to the petstore3 example
+    console.log('sending to petstore origin');
     let validation_result = await openapi_request_validation(req);
 
     console.log("validation results: " + validation_result.valid);
