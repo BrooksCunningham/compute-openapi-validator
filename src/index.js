@@ -139,18 +139,23 @@ async function handleRequest(event) {
   // console.log(req.headers.get('anything'));
   if (req.headers.get('anything') != null) {
     console.log('sending to httpbin');
-    let validation_result = await openapi_request_validation(openapi_check_req);
+    let openapi_validation_result = await openapi_request_validation(openapi_check_req);
     // console.log(JSON.stringify(validation_result));
 
 
-    req = await openapi_request_header_enrichment(req, validation_result);
+    // req = await openapi_request_header_enrichment(req, validation_result);
 
     let url = new URL(req.url);
     // Create a new Request object with an updated URL that will be send to httpbin.
     let new_url = new URL(url);
     new_url.pathname = "/anything" + url.pathname;
 
-    const httpbin_req = new Request(new_url, req);
+    const httpbin_req = new Request(new_url, original_req_init);
+    httpbin_req.headers.set("openapi-check", openapi_validation_result.valid);
+    if (openapi_validation_result.errors){
+      httpbin_req.headers.set("openapi-check-false-debug", JSON.stringify(openapi_validation_result.errors));
+    };
+
     // return fetch(req, {
     //   backend: httpbin_backend,
     // });
