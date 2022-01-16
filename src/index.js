@@ -11,14 +11,37 @@ const httpbin_backend = "httpbin";
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapivalidator
 import { OpenAPIValidator } from 'openapi-backend/validation';
 
+// Used to dereference things like $ref
+import { dereference } from 'openapi-backend/refparser';
+
+// const $RefParser = require("@apidevtools/json-schema-ref-parser");
+
+
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapirouter
 import { OpenAPIRouter } from 'openapi-backend/router';
 
 // https://petstore3.swagger.io/api/v3/openapi.yaml
 // const openapi_document = require("./petstore.json");
 // set the yaml or JSON files that are used for the openapi spec.
-const openapi_document = require("./petstore.yaml");
+// const openapi_document = require("./petstore.yaml");
+const openapi_document = require("./petstore.json");
 const petstore_basic_document = require("./petstore-basic.json");
+
+// derefence the openapi doc
+
+const openapi_document_deref = dereference(openapi_document);
+// console.log(openapi_document_deref);
+openapi_document_deref.then(
+  (result) => {
+    console.log(result);
+    console.log('resulted');
+  },
+  (error) => {
+    console.log(error);
+    console.log('errorred');
+  }
+)
+
 
 const openapi_router = new OpenAPIRouter({
   definition: openapi_document,
@@ -26,12 +49,13 @@ const openapi_router = new OpenAPIRouter({
   ignoreTrailingSlashes: true,
 });
 
+
 // lazyCompileValidator is needed for $ref to work.
-const openapi_validator = new OpenAPIValidator({
-  definition: openapi_document,
-  lazyCompileValidators: true,
-  router: openapi_router,
-});
+  const openapi_validator = new OpenAPIValidator({
+    definition: openapi_document,
+    lazyCompileValidators: true,
+    router: openapi_router,
+  });
 
 
 const openapi_basic_validator = new OpenAPIValidator({
@@ -100,10 +124,9 @@ async function openapi_request_header_enrichment(req, openapi_validation_result)
 addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
 async function handleRequest(event) {
+  
   // Get the client request.
   let original_req = event.request;
-
-
 
   const original_body = await original_req.text();
   let original_headers = new Headers();

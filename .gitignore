@@ -92,3 +92,4 @@ typings/
 bin/main.wasm
 bin/index.js
 fastly.toml
+package-lock.json
