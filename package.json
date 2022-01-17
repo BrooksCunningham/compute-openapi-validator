@@ -12,6 +12,7 @@
     "webpack-cli": "^4.9.1"
   },
   "dependencies": {
+    "@apidevtools/json-schema-ref-parser": "^9.0.9",
     "@fastly/js-compute": "^0.2.1",
     "buffer": "^6.0.3",
     "https-browserify": "^1.0.0",

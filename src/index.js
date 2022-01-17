@@ -13,8 +13,11 @@ import { OpenAPIValidator } from 'openapi-backend/validation';
 
 // Used to dereference things like $ref
 import { dereference } from 'openapi-backend/refparser';
-
 // const $RefParser = require("@apidevtools/json-schema-ref-parser");
+
+// https://stackoverflow.com/questions/14452409/how-to-emulate-window-object-in-nodejs
+// This seeems to fix the Unable to resolve error
+global.location = function () {};
 
 
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapirouter
