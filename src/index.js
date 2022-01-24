@@ -1,5 +1,5 @@
 //! Default Compute@Edge template program.
-import welcomePage from "./welcome-to-compute@edge.html";
+// import welcomePage from "./welcome-to-compute@edge.html";
 
 // https://petstore3.swagger.io
 const petstore_backend = "petstore";
@@ -11,15 +11,6 @@ const httpbin_backend = "httpbin";
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapivalidator
 import { OpenAPIValidator } from 'openapi-backend/validation';
 
-// Used to dereference things like $ref
-import { dereference } from 'openapi-backend/refparser';
-// const $RefParser = require("@apidevtools/json-schema-ref-parser");
-
-// https://stackoverflow.com/questions/14452409/how-to-emulate-window-object-in-nodejs
-// This seeems to fix the Unable to resolve error
-global.location = function () {};
-
-
 // https://github.com/anttiviljami/openapi-backend/blob/master/DOCS.md#class-openapirouter
 import { OpenAPIRouter } from 'openapi-backend/router';
 
@@ -27,24 +18,12 @@ import { OpenAPIRouter } from 'openapi-backend/router';
 // const openapi_document = require("./petstore.json");
 // set the yaml or JSON files that are used for the openapi spec.
 // const openapi_document = require("./petstore.yaml");
-const openapi_document = require("./petstore.json");
-const petstore_basic_document = require("./petstore-basic.json");
+// const openapi_document = require("./petstore.json");
 
-// derefence the openapi doc
-
-const openapi_document_deref = dereference(openapi_document);
-// console.log(openapi_document_deref);
-openapi_document_deref.then(
-  (result) => {
-    console.log(result);
-    console.log('resulted');
-  },
-  (error) => {
-    console.log(error);
-    console.log('errorred');
-  }
-)
-
+// The openapi spec must be completely dereferenced before being imported into the WASM.
+// Use a script like the following to do the derefence.
+// https://github.com/BrooksCunningham/json-dereference
+const openapi_document = require("./petstore-dereferenced.json");
 
 const openapi_router = new OpenAPIRouter({
   definition: openapi_document,
@@ -53,16 +32,10 @@ const openapi_router = new OpenAPIRouter({
 });
 
 
-// lazyCompileValidator is needed for $ref to work.
-  const openapi_validator = new OpenAPIValidator({
-    definition: openapi_document,
-    lazyCompileValidators: true,
-    router: openapi_router,
-  });
-
-
-const openapi_basic_validator = new OpenAPIValidator({
-  definition: petstore_basic_document,
+const openapi_validator = new OpenAPIValidator({
+  definition: openapi_document,
+  lazyCompileValidators: false,
+  router: openapi_router,
 });
 
 // validates HTTP requests against the spec defined in the OpenAPI validator object.
@@ -148,7 +121,7 @@ async function handleRequest(event) {
     method: original_req.method,
     headers: original_headers,
     // body: original_body,
-    body: 'my body',
+    body: original_body,
   };
 
   // cloning is needed when we consume the body of the request
