@@ -1,5 +1,5 @@
 //! Default Compute@Edge template program.
-import welcomePage from "./welcome-to-compute@edge.html";
+// import welcomePage from "./welcome-to-compute@edge.html";
 
 // https://petstore3.swagger.io
 const petstore_backend = "petstore";
@@ -17,8 +17,13 @@ import { OpenAPIRouter } from 'openapi-backend/router';
 // https://petstore3.swagger.io/api/v3/openapi.yaml
 // const openapi_document = require("./petstore.json");
 // set the yaml or JSON files that are used for the openapi spec.
-const openapi_document = require("./petstore.yaml");
-const petstore_basic_document = require("./petstore-basic.json");
+// const openapi_document = require("./petstore.yaml");
+// const openapi_document = require("./petstore.json");
+
+// The openapi spec must be completely dereferenced before being imported into the WASM.
+// Use a script like the following to do the derefence.
+// https://github.com/BrooksCunningham/json-dereference
+const openapi_document = require("./petstore-dereferenced.json");
 
 const openapi_router = new OpenAPIRouter({
   definition: openapi_document,
@@ -26,16 +31,11 @@ const openapi_router = new OpenAPIRouter({
   ignoreTrailingSlashes: true,
 });
 
-// lazyCompileValidator is needed for $ref to work.
+
 const openapi_validator = new OpenAPIValidator({
   definition: openapi_document,
-  lazyCompileValidators: true,
+  lazyCompileValidators: false,
   router: openapi_router,
-});
-
-
-const openapi_basic_validator = new OpenAPIValidator({
-  definition: petstore_basic_document,
 });
 
 // validates HTTP requests against the spec defined in the OpenAPI validator object.
@@ -100,10 +100,9 @@ async function openapi_request_header_enrichment(req, openapi_validation_result)
 addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
 async function handleRequest(event) {
+  
   // Get the client request.
   let original_req = event.request;
-
-
 
   const original_body = await original_req.text();
   let original_headers = new Headers();
@@ -122,7 +121,7 @@ async function handleRequest(event) {
     method: original_req.method,
     headers: original_headers,
     // body: original_body,
-    body: 'my body',
+    body: original_body,
   };
 
   // cloning is needed when we consume the body of the request

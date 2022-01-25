@@ -8,6 +8,7 @@ module.exports = {
   },
   target: "webworker",
   output: {
+    //globalObject: 'this',
     filename: "index.js",
     path: path.resolve(__dirname, "bin"),
     libraryTarget: "this",
@@ -38,11 +39,7 @@ module.exports = {
       http: require.resolve("stream-http"),
       https: require.resolve("https-browserify"),
       buffer: require.resolve('buffer'),
-      process: require.resolve("process"),
-      // OpenAPIRouter: require.resolve("openapi-backend/"),
-      // http: require.resolve("core-js/"), // use the core js
-      // https: require.resolve("core-js/"), // use the core js
-      
+      process: require.resolve("process"),      
     }
   },
   plugins: [
