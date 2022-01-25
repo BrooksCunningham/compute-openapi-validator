@@ -13,3 +13,5 @@ Use the Fastly cli to test locally and then deploy a service
 | Use req.headers in the validation | Done | |
 | Use query params in the validation | Done | |
 | Use request body in the validation | Done | |
+| Use response body in the validation | Done | |
+| Use response headers in the validation | Backlog | |

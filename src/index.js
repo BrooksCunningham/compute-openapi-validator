@@ -96,6 +96,44 @@ async function openapi_request_header_enrichment(req, openapi_validation_result)
   return req
 }
 
+// obtain the operationID that may be used for the response validation
+async function openapi_get_operationid (req){
+
+  // this may be unnecessary for performance
+  let url = new URL(req.url);
+  
+  let operationid = openapi_router.matchOperation({
+    method: req.method,
+    path: url.pathname,
+    headers: req.headers,
+  });
+  console.log("Operation ID");
+  console.log(operationid);
+  console.log(JSON.stringify(operationid.operationId));
+  console.log(operationid.operationId);
+
+  return operationid.operationId
+}
+
+// validate the response against the openapi spec
+async function openapi_response_validation(origin_resp_body, openapi_operationid, resp){
+  try {
+    // let valid = await api.validateResponse({ name: 'Garfield' }, 'getPetById', 200);
+    let valid = openapi_validator.validateResponse(origin_resp_body, openapi_operationid, resp.status);
+    if (valid.errors) {
+      // there were errors
+      return valid
+    }
+    return valid
+  }
+  catch(error){  
+    console.log("errors");
+    console.log(error);
+    return error
+  }
+}
+
+
 
 addEventListener("fetch", (event) => event.respondWith(handleRequest(event)));
 
@@ -108,7 +146,6 @@ async function handleRequest(event) {
   let original_headers = new Headers();
 
   for (let pair of original_req.headers.entries()) {
-    // console.log(pair[0]+ ': '+ pair[1]);
     original_headers.append(pair[0], pair[1]);
   };
  
@@ -132,9 +169,9 @@ async function handleRequest(event) {
   // clone the request for the openapi check
   let openapi_check_req = new Request(original_req.url, original_req_init);  
 
-  console.log(JSON.stringify(Object.fromEntries(req.headers.entries())));
+  // console.log(JSON.stringify(Object.fromEntries(req.headers.entries())));
 
-  //debug at the anything endpoint for httpbin
+  // debug at the anything endpoint for httpbin
   // console.log(req.headers.get('anything'));
   if (req.headers.get('anything') != null) {
     console.log('sending to httpbin');
@@ -151,29 +188,64 @@ async function handleRequest(event) {
 
     const httpbin_req = new Request(new_url, original_req_init);
     httpbin_req.headers.set("openapi-check", openapi_validation_result.valid);
+    console.log(JSON.stringify(openapi_validation_result));
     if (openapi_validation_result.errors){
       httpbin_req.headers.set("openapi-check-false-debug", JSON.stringify(openapi_validation_result.errors));
     };
 
-    // return fetch(req, {
-    //   backend: httpbin_backend,
-    // });
-
-    return fetch(httpbin_req, {
+    let origin_resp = await fetch(httpbin_req, {
       backend: httpbin_backend,
     });
+
+    // validate origin response is compliant with openapi schema
+    let openapi_operationid = await openapi_get_operationid(req);
+
+    // Take care! .text() will consume the entire body into memory!
+    let bodyStr = await origin_resp.json();
+
+    let response_openapi_validation_result = await openapi_response_validation(bodyStr, openapi_operationid, origin_resp);
+
+    console.log(`response_openapi_validation_result: ` + response_openapi_validation_result.valid);
+
+    origin_resp = new Response(JSON.stringify(bodyStr), {
+        status: origin_resp.status,
+        headers: origin_resp.headers
+    });
+
+    return origin_resp;
     
   } else {
   // send requests to the petstore3 example
     console.log('sending to petstore origin');
-    let validation_result = await openapi_request_validation(req);
+    let request_openapi_validation_result = await openapi_request_validation(req);
 
-    console.log("validation results: " + validation_result.valid);
+    console.log("request validation results: " + request_openapi_validation_result.valid);
 
     req.headers.set("host", "petstore3.swagger.io");
     // req.headers.set("openapi-check", validation_result);
-    return fetch(req, {
+    let origin_resp = await fetch(req, {
       backend: petstore_backend,
     });
+
+    let openapi_operationid = await openapi_get_operationid(req);
+
+    // Take care! .text() will consume the entire body into memory!
+    let bodyStr = await origin_resp.json();
+    
+    // console.log("bodyStr");
+    // console.log(bodyStr);
+    // console.log(JSON.stringify(bodyStr));
+
+    let response_openapi_validation_result = await openapi_response_validation(bodyStr, openapi_operationid, origin_resp);
+
+    console.log(`response_openapi_validation_result: ` + response_openapi_validation_result.valid);
+    console.log(JSON.stringify(response_openapi_validation_result));
+
+    origin_resp = new Response(JSON.stringify(bodyStr), {
+      status: origin_resp.status,
+      headers: origin_resp.headers
+    });
+
+    return origin_resp;
   }
 }
