@@ -1,9 +1,10 @@
 # compute-openapi-validator
- validate requests against an openapi document. This repo uses the pet store openapi example, https://petstore3.swagger.io/
+Validate requests against an openapi document. This repo uses the pet store openapi example, https://petstore3.swagger.io/
 
 ## Getting started
-Clone the repo.
-Use the Fastly cli to test locally and then deploy a service
+* Clone the repo.
+* Use the Fastly cli to test locally 
+* Deploy a service
 
 ## TODOs
 
@@ -13,3 +14,4 @@ Use the Fastly cli to test locally and then deploy a service
 | Use req.headers in the validation | Done | |
 | Use query params in the validation | Done | |
 | Use request body in the validation | Done | |
+| Use request headers in the validation | Backlog | |
